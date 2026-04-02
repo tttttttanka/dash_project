@@ -1,0 +1,30 @@
+.dash-table-container .dash-spreadsheet-container {
+    overflow-x: auto;
+}
+
+.dash-table-container .dash-spreadsheet-inner th {
+    background-color: #5b7cff;
+    font-weight: 600;
+    text-align: center;
+}
+
+.dash-table-container .dash-spreadsheet-inner td {
+    padding: 8px;
+    text-align: left;
+    font-size: 14px;
+    font-family: Arial;
+    min-width: 80px;
+    color: black;
+    background-color: white;
+}
+
+/* Полосатые строки таблицы */
+.dash-table-container .dash-spreadsheet-inner tr:nth-child(odd) td {
+    background-color: #f8f9fa;
+}
+
+/* Подсветка выбранной ячейки/строки */
+.dash-table-container .dash-spreadsheet-inner td.cell--selected,
+.dash-table-container .dash-spreadsheet-inner td.focused {
+    background-color: #b3d9ff !important;
+}

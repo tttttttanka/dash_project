@@ -1,0 +1,255 @@
+body {
+    background: #eef2ff;
+}
+
+h1, h3 {
+    text-align: center;
+}
+
+.app-shell {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: Arial;
+}
+
+.page-title {
+    color: #333;
+    margin-bottom: 30px;
+}
+
+.section-title {
+    color: #333;
+    border-bottom: 2px solid #2196f3;
+    padding-bottom: 5px;
+}
+
+.section-block {
+    margin-bottom: 30px;
+}
+
+.button-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.button-row.center {
+    justify-content: center;
+}
+
+.btn {
+    padding: 10px 20px;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-blue { background-color: #2196f3; }
+.btn-green { background-color: #4caf50; }
+.btn-orange { background-color: #ff9800; }
+
+.upload-box {
+    padding: 20px;
+    border: 2px dashed #2196f3;
+    border-radius: 8px;
+    text-align: center;
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+
+.upload-link {
+    color: #2196f3;
+    font-weight: bold;
+}
+
+.upload-info {
+    margin-top: 10px;
+    color: #4caf50;
+}
+
+.status-text {
+    margin-bottom: 10px;
+    color: #4caf50;
+}
+
+.log-box {
+    height: 250px;
+    overflow-y: scroll;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    font-size: 13px;
+    margin-bottom: 30px;
+}
+
+.log-success {
+    font-weight: bold;
+}
+
+.log-error {
+    color: #f44336;
+}
+
+.log-series {
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+.empty-state {
+    color: #666;
+    text-align: center;
+    padding: 20px;
+}
+
+.param-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.constant-card {
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background-color: #fafafa;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.param-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.meta-wrap {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.meta-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.meta-label {
+    margin-right: 5px;
+    color: #666;
+}
+
+.meta-label.strong {
+    font-weight: bold;
+}
+
+.meta-value {
+    color: #1976d2;
+    font-weight: bold;
+}
+
+.steps-input {
+    width: 80px;
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.selected-range {
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.selected-val {
+    font-weight: bold;
+    color: #ff9800;
+}
+
+.muted {
+    color: #666;
+}
+
+.preview-box {
+    margin-top: 10px;
+    padding: 8px;
+    background-color: #e3f2fd;
+    border-radius: 4px;
+    color: #1976d2;
+}
+
+.text-error {
+    color: #f44336;
+}
+
+.plots-wrap {
+    margin-bottom: 20px;
+}
+
+.plot-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.plot-card {
+    border: 1px solid #c5cae9;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fafbff;
+}
+
+.plot-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.plot-card-title {
+    font-weight: bold;
+    color: #333;
+}
+
+.plot-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 10px;
+}
+
+.axis-label {
+    font-size: 12px;
+    color: #555;
+}
+
+.plot-dropdown {
+    min-width: 140px;
+}
+
+.plot-graph {
+    margin-top: 8px;
+}
+
+.btn-small {
+    padding: 4px 10px;
+    font-size: 13px;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid #7986cb;
+    color: #3949ab;
+}
+
+.bound-input {
+    width: 110px;
+    margin-right: 8px;
+}
