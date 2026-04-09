@@ -21,6 +21,5 @@ app.title = "Расчёт"
 app.layout = build_layout(BASE_DIR)
 register_callbacks(app, BASE_DIR)
 
-# Локальный запуск: python prilozhenie.py
 if __name__ == "__main__":
     app.run(debug=True)

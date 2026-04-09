@@ -14,6 +14,15 @@ def register_series_table_callbacks(app):
         return build_series_table(series_data or [])
 
     @app.callback(
+        Output("generated-series-info", "children", allow_duplicate=True),
+        Input("series-data", "data"),
+        prevent_initial_call=True,
+    )
+    def sync_generated_count(series_data):
+        # Держим счётчик серий в тексте в актуальном состоянии.
+        return f"Сгенерировано серий: {len(series_data or [])}"
+
+    @app.callback(
         Output("series-data", "data", allow_duplicate=True),
         Input("series-data-table", "data"),
         State("series-data", "data"),

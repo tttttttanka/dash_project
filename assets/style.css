@@ -138,7 +138,7 @@ h1, h3 {
 .meta-row {
     display: flex;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 17px;
 }
 
 .meta-label {
@@ -253,3 +253,11 @@ h1, h3 {
     width: 110px;
     margin-right: 8px;
 }
+
+/* Убираем декоративный псевдоэлемент у подписей Dash-слайдера
+.dash-slider-mark:before,
+.dash-slider-mark-label:before,
+.rc-slider-mark-text:before {
+    content: none !important;
+    display: none !important;
+} */

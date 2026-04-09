@@ -1,6 +1,6 @@
 import base64
 
-from dash import html, no_update
+from dash import html, no_update, callback_context
 from dash.dependencies import Input, Output, State, ALL
 
 from sluzhby.parametry import parse_parameters_file, generate_parameter_values, generate_slider_marks
@@ -77,35 +77,129 @@ def register_parameter_callbacks(app):
             new_val.append(v)
         return new_min, new_max, new_val
 
-    # Сдвинули ползунки — число интервалов из 0 в 1.
+    # Если ползунок уперся в край шкалы, расширяем границы на 10.
     @app.callback(
-        Output({"type": "param-steps-input", "key": ALL}, "value", allow_duplicate=True),
+        Output({"type": "param-bound-min", "key": ALL}, "value", allow_duplicate=True),
+        Output({"type": "param-bound-max", "key": ALL}, "value", allow_duplicate=True),
+        Output({"type": "param-range", "key": ALL}, "min", allow_duplicate=True),
+        Output({"type": "param-range", "key": ALL}, "max", allow_duplicate=True),
         Input({"type": "param-range", "key": ALL}, "value"),
-        State({"type": "param-steps-input", "key": ALL}, "value"),
+        State({"type": "param-range", "key": ALL}, "min"),
+        State({"type": "param-range", "key": ALL}, "max"),
         prevent_initial_call=True,
     )
-    def sync_steps_with_range_collapsed(range_vals, steps_vals):
+    def auto_expand_slider_bounds(range_vals, mins, maxs):
+        n = len(range_vals) if range_vals else 0
+        nu = [no_update] * n
+        if not range_vals or mins is None or maxs is None or len(mins) != n or len(maxs) != n:
+            return nu, nu, nu, nu
+
+        new_bmins, new_bmaxs, new_mins, new_maxs = [], [], [], []
+        changed = False
+        eps = 1e-12
+
+        for rv, mn, mx in zip(range_vals, mins, maxs):
+            if rv is None or len(rv) < 2 or mn is None or mx is None:
+                new_bmins.append(no_update)
+                new_bmaxs.append(no_update)
+                new_mins.append(no_update)
+                new_maxs.append(no_update)
+                continue
+
+            lo = float(mn)
+            hi = float(mx)
+            a = float(rv[0])
+            b = float(rv[1])
+
+            new_lo = lo
+            new_hi = hi
+            if a <= lo + eps:
+                new_lo = lo - 10.0
+            if b >= hi - eps:
+                new_hi = hi + 10.0
+
+            if new_lo != lo or new_hi != hi:
+                changed = True
+                new_bmins.append(new_lo)
+                new_bmaxs.append(new_hi)
+                new_mins.append(new_lo)
+                new_maxs.append(new_hi)
+            else:
+                new_bmins.append(no_update)
+                new_bmaxs.append(no_update)
+                new_mins.append(no_update)
+                new_maxs.append(no_update)
+
+        if not changed:
+            return nu, nu, nu, nu
+        return new_bmins, new_bmaxs, new_mins, new_maxs
+
+    # Интервалы и шаг связаны: changing one recalculates the other.
+    @app.callback(
+        Output({"type": "param-steps-input", "key": ALL}, "value"),
+        Output({"type": "param-step-size-input", "key": ALL}, "value"),
+        Input({"type": "param-range", "key": ALL}, "value"),
+        Input({"type": "param-steps-input", "key": ALL}, "value"),
+        Input({"type": "param-step-size-input", "key": ALL}, "value"),
+        prevent_initial_call=True,
+    )
+    def sync_steps_and_step_size(range_vals, steps_vals, step_size_vals):
         if not range_vals:
-            return []
+            return [], []
+
         n = len(range_vals)
         if steps_vals is None or len(steps_vals) != n:
-            return [no_update] * n
-        out = []
-        for rv, st in zip(range_vals, steps_vals):
+            steps_vals = [0] * n
+        if step_size_vals is None or len(step_size_vals) != n:
+            step_size_vals = [0] * n
+
+        trigger_prop = callback_context.triggered[0]["prop_id"] if callback_context.triggered else ""
+        from_step_size = "param-step-size-input" in trigger_prop
+
+        out_steps = []
+        out_step_sizes = []
+        for rv, st, step_size in zip(range_vals, steps_vals, step_size_vals):
             if rv is None or len(rv) < 2:
-                out.append(st)
+                out_steps.append(no_update)
+                out_step_sizes.append(no_update)
                 continue
+
             lo, hi = float(rv[0]), float(rv[1])
-            collapsed = abs(lo - hi) < 1e-9
-            try:
-                prev = int(st) if st is not None else 0
-            except (TypeError, ValueError):
-                prev = 0
+            span = max(0.0, hi - lo)
+            collapsed = span < 1e-12
             if collapsed:
-                out.append(0)
-            else:
-                out.append(1 if prev == 0 else prev)
-        return out
+                out_steps.append(0)
+                out_step_sizes.append(0)
+                continue
+
+            if from_step_size:
+                try:
+                    user_step = float(step_size)
+                except (TypeError, ValueError):
+                    user_step = 0.0
+                if user_step <= 0:
+                    try:
+                        prev_steps = int(st) if st is not None else 1
+                    except (TypeError, ValueError):
+                        prev_steps = 1
+                    prev_steps = max(1, prev_steps)
+                    out_steps.append(prev_steps)
+                    out_step_sizes.append(span / prev_steps)
+                else:
+                    intervals = max(1, int(round(span / user_step)))
+                    out_steps.append(intervals)
+                    out_step_sizes.append(span / intervals)
+                continue
+
+            try:
+                intervals = int(st) if st is not None else 0
+            except (TypeError, ValueError):
+                intervals = 0
+            intervals = max(1, intervals)
+            out_steps.append(intervals)
+            out_step_sizes.append(span / intervals)
+
+        return out_steps, out_step_sizes
 
     # Метки на слайдере при смене диапазона или шагов.
     @app.callback(
@@ -113,17 +207,24 @@ def register_parameter_callbacks(app):
         Input({"type": "param-range", "key": ALL}, "value"),
         Input({"type": "param-steps-input", "key": ALL}, "value"),
         State({"type": "param-range", "key": ALL}, "id"),
+        State({"type": "param-default", "key": ALL}, "data"),
         prevent_initial_call=True,
     )
-    def update_slider_marks(range_values, steps_values, _ids):
+    def update_slider_marks(range_values, steps_values, _ids, default_values):
         n = len(range_values) if range_values else 0
         if not range_values or not steps_values or n == 0:
             return [no_update] * n
-        if len(steps_values) != n or (_ids is not None and len(_ids) != n):
+        if default_values is None:
+            default_values = [None] * n
+        if (
+            len(steps_values) != n
+            or (_ids is not None and len(_ids) != n)
+            or (default_values is not None and len(default_values) != n)
+        ):
             return [no_update] * n
 
         new_marks = []
-        for range_val, steps, _ in zip(range_values, steps_values, _ids):
+        for range_val, steps, _, default_val in zip(range_values, steps_values, _ids, default_values):
             if range_val is None or len(range_val) < 2 or steps is None:
                 new_marks.append({})
                 continue
@@ -132,7 +233,18 @@ def register_parameter_callbacks(app):
             if st < 1:
                 st = 0
             # Метки по выбранному отрезку.
-            new_marks.append(generate_slider_marks(range_val[0], range_val[1], st))
+            marks = generate_slider_marks(range_val[0], range_val[1], st)
+            if default_val is not None:
+                marks[float(default_val)] = {
+                    "label": "|",
+                    "style": {
+                        "color": "#d93025",
+                        "fontWeight": "700",
+                        "fontSize": "20px",
+                        "transform": "translateY(-28px)",
+                    },
+                }
+            new_marks.append(marks)
 
         return new_marks
 

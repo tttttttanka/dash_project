@@ -76,14 +76,14 @@ def build_plots_panel(base_dir: str, plot_specs: Optional[List[dict]]):
     if df.empty:
         return html.Div(
             [
-                toolbar,
                 html.Div("Нет данных в истории — выполните расчёты или обновите историю.", className="empty-state"),
+                toolbar,
             ],
             className="plots-wrap",
         )
 
     if not options:
-        return html.Div([toolbar, html.Div("Нет столбцов для осей.", className="empty-state")], className="plots-wrap")
+        return html.Div([html.Div("Нет столбцов для осей.", className="empty-state"), toolbar], className="plots-wrap")
 
     cards = []
     for i, spec in enumerate(specs):
@@ -143,7 +143,7 @@ def build_plots_panel(base_dir: str, plot_specs: Optional[List[dict]]):
         )
 
     body = cards if cards else [html.Div("Нет графиков — нажмите «Добавить 2D» или «Добавить 3D».", className="empty-state")]
-    return html.Div([toolbar, html.Div(body, className="plot-cards")], className="plots-wrap")
+    return html.Div([html.Div(body, className="plot-cards"), toolbar], className="plots-wrap")
 
 
 def coerce_series_rows(rows: list | None) -> list:
@@ -238,6 +238,16 @@ def build_input_controls(config):
         name = p.get("name", key)
         # Слайдер: сначала обе точки в значении из файла.
         range_start = [default_val, default_val]
+        step_size_start = 0 if steps is None or int(steps) <= 0 else 0
+        marks = generate_slider_marks(min_val, max_val, steps)
+        marks[default_val] = {
+            "label": "|",
+            "style": {
+                "color": "#d93025",
+                "fontWeight": "700",
+                "fontSize": "20px",
+            },
+        }
 
         controls.append(
             html.Div(
@@ -277,6 +287,15 @@ def build_input_controls(config):
                                         value=steps,
                                         className="steps-input",
                                     ),
+                                    html.Label("Шаг:", className="meta-label"),
+                                    dcc.Input(
+                                        id={"type": "param-step-size-input", "key": key},
+                                        type="number",
+                                        min=0,
+                                        step="any",
+                                        value=step_size_start,
+                                        className="steps-input",
+                                    ),
                                 ],
                                 className="meta-row",
                             ),
@@ -290,9 +309,10 @@ def build_input_controls(config):
                         value=range_start,
                         # Много мелких шагов для удобного выбора диапазона.
                         step=(max_val - min_val) / 100 if max_val > min_val else 0.001,
-                        marks=generate_slider_marks(min_val, max_val, steps),
+                        marks=marks,
                         tooltip={"placement": "bottom", "always_visible": True},
                     ),
+                    dcc.Store(id={"type": "param-default", "key": key}, data=default_val),
                     html.Div(id={"type": "param-preview", "key": key}, className="preview-box"),
                 ],
                 className="param-card",
