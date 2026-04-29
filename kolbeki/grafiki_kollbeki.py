@@ -129,3 +129,25 @@ def register_plot_callbacks(app, base_dir):
                         d["y"] = upd["y"]
             new_specs.append(d)
         return new_specs
+
+    app.clientside_callback(
+        """
+        function(specs) {
+            const n = (specs && specs.length) ? specs.length : 0;
+            const prev = (typeof window._dashPlotSpecsLen === "number") ? window._dashPlotSpecsLen : -1;
+            window._dashPlotSpecsLen = n;
+            if (n > prev && n > 0) {
+                setTimeout(function() {
+                    var el = document.getElementById("plots-scroll-anchor");
+                    if (el) {
+                        el.scrollIntoView({behavior: "smooth", block: "end", inline: "nearest"});
+                    }
+                }, 200);
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("plots-scroll-sink", "data"),
+        Input("plot-specs", "data"),
+        prevent_initial_call=True,
+    )

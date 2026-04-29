@@ -6,7 +6,12 @@ import plotly.graph_objs as go
 from dash import html, dcc, dash_table
 
 from sluzhby.istoriya import load_history_df
-from sluzhby.parametry import generate_slider_marks, generate_parameter_values
+from sluzhby.parametry import generate_slider_marks, values_for_parameter_range
+
+
+def _plots_scroll_anchor():
+    # Якорь для прокрутки вниз после добавления графика (clientside).
+    return html.Div(id="plots-scroll-anchor", className="plots-scroll-anchor", style={"height": "1px", "width": "100%"})
 
 
 def _history_column_options(df: pd.DataFrame) -> List[dict]:
@@ -62,14 +67,13 @@ def build_plots_panel(base_dir: str, plot_specs: Optional[List[dict]]):
     df = load_history_df(base_dir)
     options = _history_column_options(df)
     specs = plot_specs if plot_specs is not None else []
-    if not specs:
-        specs = []
 
     toolbar = html.Div(
         [
             html.Button("Добавить 2D график", id="add-plot-2d", n_clicks=0, className="btn btn-blue"),
             html.Button("Добавить 3D график", id="add-plot-3d", n_clicks=0, className="btn btn-orange"),
         ],
+        id="plots-toolbar",
         className="button-row",
     )
 
@@ -78,12 +82,16 @@ def build_plots_panel(base_dir: str, plot_specs: Optional[List[dict]]):
             [
                 html.Div("Нет данных в истории — выполните расчёты или обновите историю.", className="empty-state"),
                 toolbar,
+                _plots_scroll_anchor(),
             ],
             className="plots-wrap",
         )
 
     if not options:
-        return html.Div([html.Div("Нет столбцов для осей.", className="empty-state"), toolbar], className="plots-wrap")
+        return html.Div(
+            [html.Div("Нет столбцов для осей.", className="empty-state"), toolbar, _plots_scroll_anchor()],
+            className="plots-wrap",
+        )
 
     cards = []
     for i, spec in enumerate(specs):
@@ -143,7 +151,10 @@ def build_plots_panel(base_dir: str, plot_specs: Optional[List[dict]]):
         )
 
     body = cards if cards else [html.Div("Нет графиков — нажмите «Добавить 2D» или «Добавить 3D».", className="empty-state")]
-    return html.Div([html.Div(body, className="plot-cards"), toolbar], className="plots-wrap")
+    return html.Div(
+        [html.Div(body, className="plot-cards"), toolbar, _plots_scroll_anchor()],
+        className="plots-wrap",
+    )
 
 
 def coerce_series_rows(rows: list | None) -> list:
@@ -173,8 +184,8 @@ def create_history_table(base_dir):
     if df.empty:
         return html.Div("Нет данных", className="empty-state")
 
-    # Колонки для DataTable.
     columns = [{"name": col, "id": col} for col in df.columns]
+    data = df.to_dict("records")
     return html.Div(
         [
             html.Div(
@@ -187,7 +198,7 @@ def create_history_table(base_dir):
             ),
             dash_table.DataTable(
                 id="history-data-table",
-                data=df.to_dict("records"),
+                data=data,
                 columns=columns,
                 page_size=10,
                 page_action="native",
@@ -238,7 +249,7 @@ def build_input_controls(config):
         name = p.get("name", key)
         # Слайдер: сначала обе точки в значении из файла.
         range_start = [default_val, default_val]
-        step_size_start = 0 if steps is None or int(steps) <= 0 else 0
+        step_size_start = 0
         marks = generate_slider_marks(min_val, max_val, steps)
         marks[default_val] = {
             "label": "|",
@@ -294,6 +305,7 @@ def build_input_controls(config):
                                         min=0,
                                         step="any",
                                         value=step_size_start,
+                                        debounce=True,
                                         className="steps-input",
                                     ),
                                 ],
@@ -335,17 +347,20 @@ def build_input_controls(config):
     return controls, len(params), len(constants)
 
 
-def build_series_table(series_data):
-    # Таблица серий: можно править и удалять строки.
-    if not series_data:
-        return html.Div("Нет строк — сгенерируйте серии».", className="empty-state")
-    df = pd.DataFrame(series_data)
+# Колонки таблицы серий до первой загрузки данных (совпадают с полями Task).
+SERIES_TABLE_DEFAULT_COLUMNS = [{"name": c, "id": c} for c in ("m", "g", "h", "V", "T", "C")]
+
+
+def series_data_table():
+    # Таблица всегда в layout: выбор строк, правка, удаление строки.
     return dash_table.DataTable(
         id="series-data-table",
-        data=df.to_dict("records"),
-        columns=[{"name": c, "id": c} for c in df.columns],
+        columns=SERIES_TABLE_DEFAULT_COLUMNS,
+        data=[],
         editable=True,
         row_deletable=True,
+        row_selectable="multi",
+        selected_rows=[],
         page_size=15,
         page_action="native",
         sort_action="native",
@@ -355,10 +370,21 @@ def build_series_table(series_data):
     )
 
 
-def generate_series_data(range_values, steps_values, param_ids):
+def series_table_columns_and_data(series_data: list | None) -> tuple[list[dict], list[dict]]:
+    # Колонки и строки для DataTable из Store.
+    if not series_data:
+        return SERIES_TABLE_DEFAULT_COLUMNS, []
+    df = pd.DataFrame(series_data)
+    cols = [{"name": c, "id": c} for c in df.columns]
+    return cols, df.to_dict("records")
+
+
+def generate_series_data(range_values, steps_values, param_ids, step_size_values=None):
     # Все комбинации значений параметров (сетка по каждому).
+    if step_size_values is None:
+        step_size_values = [None] * len(range_values)
     param_values_dict = {}
-    for range_val, steps, id_dict in zip(range_values, steps_values, param_ids):
+    for range_val, steps, id_dict, step_sz in zip(range_values, steps_values, param_ids, step_size_values):
         if range_val is None or len(range_val) < 2 or steps is None:
             continue
         min_val, max_val = range_val[0], range_val[1]
@@ -369,10 +395,12 @@ def generate_series_data(range_values, steps_values, param_ids):
         if abs(float(min_val) - float(max_val)) < 1e-15:
             param_values_dict[param_key] = [float(min_val)]
             continue
-        st = int(steps) if steps is not None else 1
-        if st < 1:
+        try:
+            st = int(steps) if steps is not None else 1
+        except (TypeError, ValueError):
             st = 1
-        param_values_dict[param_key] = generate_parameter_values(min_val, max_val, st)
+        st = max(1, st)
+        param_values_dict[param_key] = values_for_parameter_range(min_val, max_val, st, step_sz)
 
     if not param_values_dict:
         return []

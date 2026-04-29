@@ -1,6 +1,6 @@
 from dash import html, dcc
 
-from interfejs.komponenty import build_plots_panel, create_history_table
+from interfejs.komponenty import build_plots_panel, create_history_table, series_data_table
 
 
 def build_layout(base_dir):
@@ -27,14 +27,18 @@ def build_layout(base_dir):
                 className="button-row center",
             ),
             html.H3("Сгенерированные серии", className="section-title"),
-            html.Div(id="generated-series-info", className="status-text"),
+            html.Div("Сгенерировано серий: 0", id="generated-series-info", className="status-text"),
             html.Div(
                 [
                     html.Button("Добавить строку", id="series-add-row", n_clicks=0, className="btn btn-blue"),
+                    html.Button("Выбрать все", id="series-select-all", n_clicks=0, className="btn btn-blue"),
+                    html.Button("Отменить выбор", id="series-clear-selection", n_clicks=0, className="btn btn-outline"),
+                    html.Button("Удалить выбранные", id="series-delete-selected", n_clicks=0, className="btn btn-outline"),
+                    html.Button("Удалить все серии", id="series-delete-all", n_clicks=0, className="btn btn-outline"),
                 ],
                 className="button-row",
             ),
-            html.Div(id="series-table-container", className="section-block"),
+            html.Div(series_data_table(), className="section-block"),
             html.Div(
                 [html.Button("Запустить расчеты", id="run-btn", n_clicks=0, className="btn btn-green")],
                 className="button-row center",
@@ -47,6 +51,7 @@ def build_layout(base_dir):
             dcc.Store(id="param-constants", data=None),
             dcc.Store(id="series-data", data=[]),
             dcc.Store(id="plot-specs", data=[]),
+            dcc.Store(id="plots-scroll-sink", data=0),
             dcc.Interval(id="log-interval", interval=1000, disabled=True, n_intervals=0),
             # Периодически проверять папку runs (удаление вручную).
             dcc.Interval(id="history-sync-interval", interval=4000, n_intervals=0),

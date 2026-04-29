@@ -1,10 +1,46 @@
 import base64
+import json
 
 from dash import html, no_update, callback_context
 from dash.dependencies import Input, Output, State, ALL
 
-from sluzhby.parametry import parse_parameters_file, generate_parameter_values, generate_slider_marks
+from sluzhby.parametry import (
+    build_marks_from_values,
+    generate_parameter_values_by_user_step,
+    generate_slider_marks,
+    is_equal_subdivision,
+    parse_parameters_file,
+    values_for_parameter_range,
+)
 from interfejs.komponenty import build_input_controls
+
+
+def _step_size_input_empty(raw):
+    # Пустое поле шага — не подставлять span/N, чтобы можно было стереть и ввести заново.
+    if raw is None:
+        return True
+    if isinstance(raw, str) and raw.strip() == "":
+        return True
+    return False
+
+
+def _triggered_step_size_key():
+    tid = getattr(callback_context, "triggered_id", None)
+    if isinstance(tid, dict) and tid.get("type") == "param-step-size-input":
+        return tid.get("key")
+    if not callback_context.triggered:
+        return None
+    prop = callback_context.triggered[0].get("prop_id") or ""
+    if "param-step-size-input" not in prop:
+        return None
+    try:
+        raw_id = prop.split(".")[0]
+        d = json.loads(raw_id)
+        if isinstance(d, dict) and d.get("type") == "param-step-size-input":
+            return d.get("key")
+    except (json.JSONDecodeError, TypeError, ValueError, IndexError):
+        pass
+    return None
 
 
 def register_parameter_callbacks(app):
@@ -141,9 +177,10 @@ def register_parameter_callbacks(app):
         Input({"type": "param-range", "key": ALL}, "value"),
         Input({"type": "param-steps-input", "key": ALL}, "value"),
         Input({"type": "param-step-size-input", "key": ALL}, "value"),
+        State({"type": "param-step-size-input", "key": ALL}, "id"),
         prevent_initial_call=True,
     )
-    def sync_steps_and_step_size(range_vals, steps_vals, step_size_vals):
+    def sync_steps_and_step_size(range_vals, steps_vals, step_size_vals, step_size_ids):
         if not range_vals:
             return [], []
 
@@ -152,13 +189,17 @@ def register_parameter_callbacks(app):
             steps_vals = [0] * n
         if step_size_vals is None or len(step_size_vals) != n:
             step_size_vals = [0] * n
+        if step_size_ids is None or len(step_size_ids) != n:
+            step_size_ids = [{"key": None}] * n
 
         trigger_prop = callback_context.triggered[0]["prop_id"] if callback_context.triggered else ""
         from_step_size = "param-step-size-input" in trigger_prop
+        from_steps_only = "param-steps-input" in trigger_prop and "param-step-size-input" not in trigger_prop
+        triggered_step_key = _triggered_step_size_key()
 
         out_steps = []
         out_step_sizes = []
-        for rv, st, step_size in zip(range_vals, steps_vals, step_size_vals):
+        for rv, st, step_size, sid in zip(range_vals, steps_vals, step_size_vals, step_size_ids):
             if rv is None or len(rv) < 2:
                 out_steps.append(no_update)
                 out_step_sizes.append(no_update)
@@ -172,32 +213,54 @@ def register_parameter_callbacks(app):
                 out_step_sizes.append(0)
                 continue
 
-            if from_step_size:
-                try:
-                    user_step = float(step_size)
-                except (TypeError, ValueError):
-                    user_step = 0.0
-                if user_step <= 0:
-                    try:
-                        prev_steps = int(st) if st is not None else 1
-                    except (TypeError, ValueError):
-                        prev_steps = 1
-                    prev_steps = max(1, prev_steps)
-                    out_steps.append(prev_steps)
-                    out_step_sizes.append(span / prev_steps)
-                else:
-                    intervals = max(1, int(round(span / user_step)))
-                    out_steps.append(intervals)
-                    out_step_sizes.append(span / intervals)
+            try:
+                user_step = float(step_size) if step_size is not None else 0.0
+            except (TypeError, ValueError):
+                user_step = 0.0
+            try:
+                st_i = int(st) if st is not None else 1
+            except (TypeError, ValueError):
+                st_i = 1
+            st_i = max(1, st_i)
+
+            row_key = sid.get("key") if isinstance(sid, dict) else None
+            editing_this_step = from_step_size and row_key is not None and row_key == triggered_step_key
+
+            if _step_size_input_empty(step_size):
+                if editing_this_step:
+                    out_steps.append(no_update)
+                    out_step_sizes.append(no_update)
+                    continue
+                out_steps.append(st_i)
+                out_step_sizes.append(span / st_i)
                 continue
 
-            try:
-                intervals = int(st) if st is not None else 0
-            except (TypeError, ValueError):
-                intervals = 0
-            intervals = max(1, intervals)
-            out_steps.append(intervals)
-            out_step_sizes.append(span / intervals)
+            if from_step_size and user_step > 0:
+                vals = generate_parameter_values_by_user_step(lo, hi, user_step)
+                out_steps.append(max(1, len(vals) - 1))
+                out_step_sizes.append(user_step)
+                continue
+            if from_step_size and user_step <= 0:
+                try:
+                    prev_steps = int(st) if st is not None else 1
+                except (TypeError, ValueError):
+                    prev_steps = 1
+                prev_steps = max(1, prev_steps)
+                out_steps.append(prev_steps)
+                out_step_sizes.append(span / prev_steps)
+                continue
+            if from_steps_only:
+                out_steps.append(st_i)
+                out_step_sizes.append(span / st_i)
+                continue
+            if user_step > 0 and not is_equal_subdivision(span, st_i, user_step):
+                vals = generate_parameter_values_by_user_step(lo, hi, user_step)
+                out_steps.append(max(1, len(vals) - 1))
+                out_step_sizes.append(user_step)
+                continue
+
+            out_steps.append(st_i)
+            out_step_sizes.append(span / st_i)
 
         return out_steps, out_step_sizes
 
@@ -206,16 +269,19 @@ def register_parameter_callbacks(app):
         Output({"type": "param-range", "key": ALL}, "marks"),
         Input({"type": "param-range", "key": ALL}, "value"),
         Input({"type": "param-steps-input", "key": ALL}, "value"),
+        Input({"type": "param-step-size-input", "key": ALL}, "value"),
         State({"type": "param-range", "key": ALL}, "id"),
         State({"type": "param-default", "key": ALL}, "data"),
         prevent_initial_call=True,
     )
-    def update_slider_marks(range_values, steps_values, _ids, default_values):
+    def update_slider_marks(range_values, steps_values, step_size_values, _ids, default_values):
         n = len(range_values) if range_values else 0
         if not range_values or not steps_values or n == 0:
             return [no_update] * n
         if default_values is None:
             default_values = [None] * n
+        if step_size_values is None or len(step_size_values) != n:
+            step_size_values = [0.0] * n
         if (
             len(steps_values) != n
             or (_ids is not None and len(_ids) != n)
@@ -224,16 +290,25 @@ def register_parameter_callbacks(app):
             return [no_update] * n
 
         new_marks = []
-        for range_val, steps, _, default_val in zip(range_values, steps_values, _ids, default_values):
+        for range_val, steps, step_sz, _, default_val in zip(
+            range_values, steps_values, step_size_values, _ids, default_values
+        ):
             if range_val is None or len(range_val) < 2 or steps is None:
                 new_marks.append({})
                 continue
 
-            st = int(steps) if steps is not None else 0
+            try:
+                st = int(steps) if steps is not None else 1
+            except (TypeError, ValueError):
+                st = 1
             if st < 1:
-                st = 0
-            # Метки по выбранному отрезку.
-            marks = generate_slider_marks(range_val[0], range_val[1], st)
+                st = 1
+            vals = values_for_parameter_range(range_val[0], range_val[1], st, step_sz)
+            lo, hi = float(range_val[0]), float(range_val[1])
+            if abs(hi - lo) < 1e-15:
+                marks = generate_slider_marks(range_val[0], range_val[1], 0)
+            else:
+                marks = build_marks_from_values(vals)
             if default_val is not None:
                 marks[float(default_val)] = {
                     "label": "|",
@@ -253,18 +328,21 @@ def register_parameter_callbacks(app):
         Output({"type": "param-preview", "key": ALL}, "children"),
         Input({"type": "param-range", "key": ALL}, "value"),
         Input({"type": "param-steps-input", "key": ALL}, "value"),
+        Input({"type": "param-step-size-input", "key": ALL}, "value"),
         State({"type": "param-range", "key": ALL}, "id"),
         prevent_initial_call=False,
     )
-    def update_param_preview(range_values, steps_values, _ids):
+    def update_param_preview(range_values, steps_values, step_size_values, _ids):
         n = len(range_values) if range_values else 0
         if not range_values or not steps_values or n == 0:
             return [no_update] * n
+        if step_size_values is None or len(step_size_values) != n:
+            step_size_values = [0.0] * n
         if len(steps_values) != n or (_ids is not None and len(_ids) != n):
             return [no_update] * n
 
         previews = []
-        for range_val, steps, _ in zip(range_values, steps_values, _ids):
+        for range_val, steps, step_sz, _ in zip(range_values, steps_values, step_size_values, _ids):
             if range_val is None or len(range_val) < 2 or steps is None:
                 previews.append("Некорректные значения")
                 continue
@@ -275,20 +353,31 @@ def register_parameter_callbacks(app):
                 previews.append("Минимум не может быть больше максимума")
                 continue
             if abs(float(min_val) - float(max_val)) < 1e-15:
-                previews.append(f"Одно значение (интервалов 0): {min_val:.4f}")
+                previews.append(f"Одно значение (интервалов 0): {min_val:.1f}")
                 continue
-            st = int(steps) if steps is not None else 1
-            if st < 1:
-                previews.append("Разведите ползунки — число интервалов станет 1")
-                continue
+            try:
+                st = int(steps) if steps is not None else 1
+            except (TypeError, ValueError):
+                st = 1
+            st = max(1, st)
+            try:
+                us = float(step_sz) if step_sz is not None else 0.0
+            except (TypeError, ValueError):
+                us = 0.0
+            span = abs(float(max_val) - float(min_val))
+            tail_note = ""
+            if us > 0 and not is_equal_subdivision(span, st, us):
+                tail_note = " Последний отрезок до правой границы может быть короче шага."
 
-            values = generate_parameter_values(min_val, max_val, st)
+            values = values_for_parameter_range(min_val, max_val, st, step_sz)
             if len(values) > 6:
                 # Длинный список — сокращённо.
                 values_str = f"{values[0]:.2f}, {values[1]:.2f}, {values[2]:.2f}, ..., {values[-1]:.2f}"
             else:
                 values_str = ", ".join([f"{v:.2f}" for v in values])
 
-            previews.append(f"Значения в выбранном поддиапазоне: {values_str} (всего {len(values)})")
+            previews.append(
+                f"Значения в выбранном поддиапазоне: {values_str} (всего {len(values)}).{tail_note}"
+            )
 
         return previews
