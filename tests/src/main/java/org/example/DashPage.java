@@ -10,7 +10,7 @@ public class DashPage {
     private WebDriver driver;
     private WebDriverWait wait;
 
-    // Локаторы из твоего скриншота
+    // Локаторы
     private By generateBtn = By.id("generate-series-btn");
     private By seriesInfo = By.id("generated-series-info");
     private By logBox = By.id("log-container");
@@ -19,13 +19,17 @@ public class DashPage {
     private By add2dGraphBtn = By.id("add-plot-2d");
     private By startCalcBtn = By.xpath("//button[contains(text(),'Запустить расчеты')]");
     private By addRowBtn = By.xpath("//button[contains(text(),'Добавить строку')]");
+    // Локатор для самого поля загрузки
+    private By fileInput = By.cssSelector("#upload-parameters input[type='file']");
+    // Локатор для текста, который сообщает о загрузке (зеленый текст на скрине)
+    private By uploadStatus = By.id("uploaded-parameters-info");
 
     public DashPage(WebDriver driver) {
         this.driver = driver;
         this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     }
 
-    // --- 8 МЕТОДОВ ДЛЯ ЗАДАНИЯ 2 ---
+    // --- МЕТОДЫ ДЛЯ ЗАДАНИЯ 2 ---
 
     public void clickGenerate() {
         driver.findElement(generateBtn).click();
@@ -63,5 +67,19 @@ public class DashPage {
 
     public String getHistoryTableText() {
         return driver.findElement(historyTable).getText();
+    }
+
+    public void uploadFile(String absolutePath) {
+        driver.findElement(fileInput).sendKeys(absolutePath);
+    }
+
+    public String getUploadStatusText() {
+        try {
+            // подождем 3 секунды, пока Dash обновит UI
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return driver.findElement(uploadStatus).getText();
     }
 }

@@ -94,6 +94,18 @@ public class DashTest {
         Assert.assertTrue(historyText.contains("Нет данных"), "В истории должно быть написано 'Нет данных'");
     }
 
+    @Test(priority = 9)
+    public void testFileUploadAndCheckVariables() {
+        // 1. Загружаем файл
+        String filePath = "C:\\Users\\Дмитрий\\Desktop\\For_tests.txt";
+        dashPage.uploadFile(filePath);
+
+        // 2. Сразу же проверяем текст (не закрывая браузер)
+        String status = dashPage.getUploadStatusText();
+        Assert.assertTrue(status.contains("For_tests.txt"));
+        Assert.assertTrue(status.contains("Переменных:"));
+    }
+
 
 
     @AfterMethod
