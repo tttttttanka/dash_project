@@ -1,6 +1,6 @@
 import pandas as pd
 
-from sluzhby.fayl_menedzher import FileManager
+from backend.services.fayl_menedzher import FileManager
 
 
 def load_history_df(base_dir: str) -> pd.DataFrame:

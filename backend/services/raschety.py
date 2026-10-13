@@ -4,8 +4,8 @@ from datetime import datetime
 
 import pandas as pd
 
-from zadacha import Task
-from sluzhby.fayl_menedzher import FileManager
+from backend.zadacha import Task
+from backend.services.fayl_menedzher import FileManager
 
 
 def run_calculations(series_data, base_dir):

@@ -4,7 +4,7 @@ import json
 from dash import html, no_update, callback_context
 from dash.dependencies import Input, Output, State, ALL
 
-from sluzhby.parametry import (
+from backend.services.parametry import (
     build_marks_from_values,
     generate_parameter_values_by_user_step,
     generate_slider_marks,
@@ -12,7 +12,7 @@ from sluzhby.parametry import (
     parse_parameters_file,
     values_for_parameter_range,
 )
-from interfejs.komponenty import build_input_controls
+from frontend.komponenty import build_input_controls
 
 
 def _step_size_input_empty(raw):

@@ -1,6 +1,6 @@
 from dash import Input, Output, State, no_update
 
-from interfejs.komponenty import coerce_series_rows, series_table_columns_and_data
+from frontend.komponenty import coerce_series_rows, series_table_columns_and_data
 
 
 def register_series_table_callbacks(app):

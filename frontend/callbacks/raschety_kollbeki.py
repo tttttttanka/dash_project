@@ -1,13 +1,14 @@
 from dash.dependencies import Input, Output, State, ALL
 
-from sluzhby.raschety import run_calculations
-from interfejs.komponenty import generate_series_data
+from backend.services.parametry import SeriesLimitExceeded, generate_series_data
+from backend.services.raschety import run_calculations
 
 
 def register_calculation_callbacks(app, base_dir):
     # Генерация серий и запуск расчёта.
     @app.callback(
         Output("series-data", "data"),
+        Output("series-generation-warning", "children"),
         Input("generate-series-btn", "n_clicks"),
         State({"type": "param-range", "key": ALL}, "value"),
         State({"type": "param-steps-input", "key": ALL}, "value"),
@@ -19,17 +20,20 @@ def register_calculation_callbacks(app, base_dir):
     def generate_series(_n_clicks, range_values, steps_values, step_size_values, param_ids, constants_data):
         # Список серий из сеток параметров + константы.
         if not param_ids or not range_values:
-            return []
+            return [], ""
 
-        series_data = generate_series_data(range_values, steps_values, param_ids, step_size_values)
+        try:
+            series_data = generate_series_data(range_values, steps_values, param_ids, step_size_values)
+        except SeriesLimitExceeded as err:
+            return ["Ошибка в генерации серий"], str(err)
         if not series_data:
-            return []
+            return [], ""
 
         # Сначала константы, потом строка серии (имена могут перекрыться).
         const = constants_data if isinstance(constants_data, dict) else {}
         series_data = [{**const, **row} for row in series_data]
 
-        return series_data
+        return series_data, ""
 
     # Кнопка «Запустить расчёты».
     @app.callback(

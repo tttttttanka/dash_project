@@ -3,8 +3,8 @@ import json
 from dash import Input, Output, State, callback_context, no_update
 from dash.dependencies import ALL
 
-from interfejs.komponenty import build_plots_panel
-from sluzhby.istoriya import load_history_df
+from backend.services.istoriya import load_history_df
+from frontend.komponenty import build_plots_panel
 
 
 def register_plot_callbacks(app, base_dir):

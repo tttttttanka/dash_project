@@ -4,9 +4,9 @@ import time
 from dash import dcc, no_update
 from dash.dependencies import Input, Output, State
 
-from sluzhby.fayl_menedzher import FileManager
-from sluzhby.vvod_vyvod import export_history_to_dataframe
-from interfejs.komponenty import format_log, create_history_table
+from backend.services.fayl_menedzher import FileManager
+from backend.services.vvod_vyvod import export_history_to_dataframe
+from frontend.komponenty import format_log, create_history_table
 
 
 def _runs_fs_signature(base_dir: str):

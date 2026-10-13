@@ -1,6 +1,6 @@
 from dash import html, dcc
 
-from interfejs.komponenty import build_plots_panel, create_history_table, series_data_table
+from frontend.komponenty import build_plots_panel, create_history_table, series_data_table
 
 
 def build_layout(base_dir):
@@ -26,6 +26,7 @@ def build_layout(base_dir):
                 [html.Button("Сгенерировать серии", id="generate-series-btn", n_clicks=0, className="btn btn-orange")],
                 className="button-row center",
             ),
+            html.Div(id="series-generation-warning", className="text-error", role="alert"),
             html.H3("Сгенерированные серии", className="section-title"),
             html.Div("Сгенерировано серий: 0", id="generated-series-info", className="status-text"),
             html.Div(

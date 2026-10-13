@@ -1,8 +1,8 @@
 import os
 
 from dash import Dash
-from interfejs.maket import build_layout
-from kolbeki.registrator import register_callbacks
+from frontend.callbacks.registrator import register_callbacks
+from frontend.maket import build_layout
 
 # Папка проекта и каталог runs для расчётов.
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -13,7 +13,7 @@ os.makedirs(BASE_DIR, exist_ok=True)
 app = Dash(
     __name__,
     suppress_callback_exceptions=True,
-    assets_folder=os.path.join(PROJECT_DIR, "assets"),
+    assets_folder=os.path.join(PROJECT_DIR, "frontend", "assets"),
 )
 app.title = "Расчёт"
 

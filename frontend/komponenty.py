@@ -1,12 +1,11 @@
-import itertools
 from typing import List, Optional
 
 import pandas as pd
 import plotly.graph_objs as go
 from dash import html, dcc, dash_table
 
-from sluzhby.istoriya import load_history_df
-from sluzhby.parametry import generate_slider_marks, values_for_parameter_range
+from backend.services.istoriya import load_history_df
+from backend.services.parametry import generate_slider_marks
 
 
 def _plots_scroll_anchor():
@@ -377,36 +376,3 @@ def series_table_columns_and_data(series_data: list | None) -> tuple[list[dict],
     df = pd.DataFrame(series_data)
     cols = [{"name": c, "id": c} for c in df.columns]
     return cols, df.to_dict("records")
-
-
-def generate_series_data(range_values, steps_values, param_ids, step_size_values=None):
-    # Все комбинации значений параметров (сетка по каждому).
-    if step_size_values is None:
-        step_size_values = [None] * len(range_values)
-    param_values_dict = {}
-    for range_val, steps, id_dict, step_sz in zip(range_values, steps_values, param_ids, step_size_values):
-        if range_val is None or len(range_val) < 2 or steps is None:
-            continue
-        min_val, max_val = range_val[0], range_val[1]
-        if min_val > max_val:
-            continue
-        param_key = id_dict.get("key")
-        # Ползунки в одной точке — одно число.
-        if abs(float(min_val) - float(max_val)) < 1e-15:
-            param_values_dict[param_key] = [float(min_val)]
-            continue
-        try:
-            st = int(steps) if steps is not None else 1
-        except (TypeError, ValueError):
-            st = 1
-        st = max(1, st)
-        param_values_dict[param_key] = values_for_parameter_range(min_val, max_val, st, step_sz)
-
-    if not param_values_dict:
-        return []
-
-    param_names = list(param_values_dict.keys())
-    param_values = list(param_values_dict.values())
-    # Все пары/тройки/… из сеток параметров.
-    combinations = list(itertools.product(*param_values))
-    return [dict(zip(param_names, combo)) for combo in combinations]
